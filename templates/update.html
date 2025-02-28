@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask Todo App</title>
+
+    <!-- Bootstrap CSS from CDN -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome CDN for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <!-- Custom Styling -->
+
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-4 text-center">Update a Todo</h1>
+
+        <!-- Form to add a new todo -->
+        <form action="/update/{{task.id}}" method="POST" class="mt-4">
+            <div class="form-group d-flex">
+                <input type="text" name="todo_item" id="todo_item" class="form-control mr-2" style="width: 90%;" placeholder="{{task.todo}}" required>
+                <button type="submit" class="btn btn-primary">Update</button>
+            </div>
+        </form>
+
+    </div>
+
+    <!-- Bootstrap JS and Popper.js (required for certain Bootstrap components) -->
+
+
+    <!-- Font Awesome JS for icons -->
+
+</body>
+</html>
