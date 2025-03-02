@@ -13,8 +13,12 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize SQLAlchemy (without binding to app yet)
 db = SQLAlchemy()
 
-# Import models after initializing db
-
+# Custom Jinja filter to format datetime
+@app.template_filter('datetimeformat')
+def datetimeformat(value, format='%Y-%m-%dT%H:%M'):
+    if value is None:
+        return ""
+    return value.strftime(format)
 
 class TodoModel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -22,19 +26,22 @@ class TodoModel(db.Model):
     category = db.Column(db.String(50), nullable=True)
     start_time = db.Column(db.DateTime, nullable=True)
     end_time = db.Column(db.DateTime, nullable=True)
-    duration = db.Column(db.Float, nullable=True)
+    duration = db.Column(db.String, nullable=True)  # Change duration to String type
     status = db.Column(db.String(20), default='Pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def calculate_working_hours(self):
+    def calculate_working_minutes(self):
         """Calculate duration in hours if start_time and end_time exist."""
         if self.start_time and self.end_time:
-            return (self.end_time - self.start_time).total_seconds() / 3600
+            total_seconds = (self.end_time - self.start_time).total_seconds()
+            if total_seconds >= 3600:
+                return f"{total_seconds / 3600:.2f} hours"
+            else:
+                return f"{total_seconds / 60:.2f} minutes"
         return None  # Return None if no valid time range exists
 
     def __repr__(self):
         return f"<Task {self.todo}, Category: {self.category}, Status: {self.status}>"
-
 
 # Now bind SQLAlchemy to the Flask app
 db.init_app(app)
@@ -54,7 +61,9 @@ def home():
         # Convert time fields if provided
         start_dt = datetime.strptime(start_time, '%Y-%m-%dT%H:%M') if start_time else None
         end_dt = datetime.strptime(end_time, '%Y-%m-%dT%H:%M') if end_time else None
-        duration = (end_dt - start_dt).total_seconds() / 3600 if start_dt and end_dt else None
+
+        # Calculate duration
+        duration = TodoModel().calculate_working_minutes() if start_dt and end_dt else None
 
         # Task status
         status = 'Completed' if end_dt and datetime.now() > end_dt else 'Pending'
@@ -75,27 +84,35 @@ def home():
         except:
             return 'There was an error while adding the task'
     else:
-        tasks = TodoModel.query.all()
+        category_filter = request.args.get('category')
+        if category_filter:
+            tasks = TodoModel.query.filter_by(category=category_filter).all()
+        else:
+            tasks = TodoModel.query.all()
         return render_template("index.html", tasks=tasks)
-    
-    # update the todo task
 
-@app.route('/update/<int:id>', methods = ['GET', 'POST'])
+# Update task
+@app.route('/update/<int:id>', methods=['GET', 'POST'])
 def update(id):
     task = TodoModel.query.get_or_404(id)
     
     if request.method == 'POST':
         task.todo = request.form['todo_item']
-        
+        task.category = request.form['category']
+        task.start_time = datetime.strptime(request.form['start_time'], '%Y-%m-%dT%H:%M') if request.form['start_time'] else None
+        task.end_time = datetime.strptime(request.form['end_time'], '%Y-%m-%dT%H:%M') if request.form['end_time'] else None
+        task.duration = task.calculate_working_minutes()
+        task.status = 'Completed' if task.end_time and datetime.now() > task.end_time else 'Pending'
+
         try:
             db.session.commit()
             return redirect('/')
         except:
             return 'There was an issue while updating that task.'
     else:
-        return render_template('update.html', task = task)
+        return render_template('update.html', task=task)
 
-# delete
+# Delete task
 @app.route('/delete/<int:id>')
 def delete(id):
     todo_to_delete = TodoModel.query.get_or_404(id)
@@ -106,9 +123,102 @@ def delete(id):
     except:
         return 'There was an error while deleting that todo.'
 
+# Start Task Route
+@app.route('/start_task/<int:id>', methods=['POST'])
+def start_task(id):
+    task = TodoModel.query.get_or_404(id)
+    task.start_time = datetime.now()
+    task.status = 'In Progress'
+    try:
+        db.session.commit()
+        return redirect('/')
+    except:
+        return 'There was an error starting the task.'
 
+# End Task Route
+@app.route('/end_task/<int:id>', methods=['POST'])
+def end_task(id):
+    task = TodoModel.query.get_or_404(id)
+    task.end_time = datetime.now()
+    task.duration = task.calculate_working_minutes()
+    task.status = 'Completed'
+    try:
+        db.session.commit()
+        return redirect('/')
+    except:
+        return 'There was an error ending the task.'
 
-# hello
+# Daily Work Summary Route
+@app.route('/summary/daily', methods=['GET'])
+def daily_summary():
+    today = datetime.now().date()
+    tasks = TodoModel.query.filter(func.date(TodoModel.start_time) == today).all()
+    total_hours = sum(float(task.duration.split()[0]) if task.duration else 0 for task in tasks)
+    return jsonify(message=f"Total hours worked today: {total_hours:.2f} hours"), 200
+
+# Weekly Work Summary Route
+@app.route('/summary/weekly', methods=['GET'])
+def weekly_summary():
+    week_start = datetime.now().date() - timedelta(days=datetime.now().date().weekday())
+    week_end = week_start + timedelta(days=6)
+    tasks = TodoModel.query.filter(TodoModel.start_time >= week_start, TodoModel.start_time <= week_end).all()
+    total_hours = sum(float(task.duration.split()[0]) if task.duration else 0 for task in tasks)
+    return jsonify(message=f"Total hours worked this week: {total_hours:.2f} hours"), 200
+
+# API for fetching all tasks
+@app.route('/api/tasks', methods=['GET'])
+def get_tasks():
+    tasks = TodoModel.query.all()
+    return jsonify([{
+        'id': task.id,
+        'todo': task.todo,
+        'category': task.category,
+        'start_time': task.start_time,
+        'end_time': task.end_time,
+        'duration': task.duration,
+        'status': task.status
+    } for task in tasks]), 200
+
+# API for fetching a single task by id
+@app.route('/api/tasks/<int:id>', methods=['GET'])
+def get_task(id):
+    task = TodoModel.query.get_or_404(id)
+    return jsonify({
+        'id': task.id,
+        'todo': task.todo,
+        'category': task.category,
+        'start_time': task.start_time,
+        'end_time': task.end_time,
+        'duration': task.duration,
+        'status': task.status
+    }), 200
+
+# API for updating a task by id
+@app.route('/api/tasks/<int:id>', methods=['PUT'])
+def update_task_api(id):
+    task = TodoModel.query.get_or_404(id)
+    data = request.json
+
+    task.todo = data.get('todo', task.todo)
+    task.category = data.get('category', task.category)
+    task.start_time = datetime.strptime(data['start_time'], '%Y-%m-%dT%H:%M') if 'start_time' in data else task.start_time
+    task.end_time = datetime.strptime(data['end_time'], '%Y-%m-%dT%H:%M') if 'end_time' in data else task.end_time
+    task.duration = task.calculate_working_minutes()
+    task.status = data.get('status', task.status)
+
+    try:
+        db.session.commit()
+        return jsonify({
+            'id': task.id,
+            'todo': task.todo,
+            'category': task.category,
+            'start_time': task.start_time,
+            'end_time': task.end_time,
+            'duration': task.duration,
+            'status': task.status
+        }), 200
+    except:
+        return jsonify({'error': 'There was an error while updating the task'}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)

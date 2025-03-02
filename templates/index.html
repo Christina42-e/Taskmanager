@@ -36,17 +36,43 @@
 
         <!-- Form to add a new todo -->
         <form action="/" method="POST" class="mt-4">
-            <div class="form-group d-flex">
-                <input type="text" name="todo_item" id="todo_item" class="form-control mr-2" style="width: 90%;" placeholder="Enter your todo" required>
-                <button type="submit" class="btn btn-primary">Add Todo</button>
+            <div class="form-row align-items-center">
+                <div class="col-6">
+                    <input type="text" name="todo_item" id="todo_item" class="form-control mb-2" placeholder="Enter your todo" required>
+                </div>
+                <div class="col-auto">
+                    <select name="category" class="form-control mb-2">
+                        <option value="Work">Work</option>
+                        <option value="Personal">Personal</option>
+                        <option value="Study">Study</option>
+                        <option value="Urgent">Urgent</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary mb-2">Add Todo</button>
+                </div>
             </div>
         </form>
+
+        <!-- Summary Buttons -->
+        <div class="mt-4 d-flex justify-content-center">
+            <button id="dailySummaryBtn" class="btn btn-secondary mx-2">Get Daily Summary</button>
+            <button id="weeklySummaryBtn" class="btn btn-secondary mx-2">Get Weekly Summary</button>
+        </div>
+
+        <!-- Summary Results -->
+        <div class="mt-4" id="summaryResults"></div>
 
         <!-- Todo List Table -->
         <table class="table table-bordered table-hover mt-4">
             <thead class="thead-dark">
                 <tr>
-                    <th>Todo List</th>
+                    <th>Todo</th>
+                    <th>Category</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Duration</th>
+                    <th>Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -57,11 +83,22 @@
                         <input type="checkbox" class="todo-checkbox" data-task-id="{{ task.id }}">
                         <span class="todo-text">{{ task.todo }}</span>
                     </td>
+                    <td>{{ task.category }}</td>
+                    <td>{{ task.start_time }}</td>
+                    <td>{{ task.end_time }}</td>
+                    <td>{{ task.duration }}</td>
+                    <td>{{ task.status }}</td>
                     <td>
-                        <a href= "/update/{{task.id}}"><i class="fas fa-edit action-btn ml-2" data-toggle="tooltip" data-placement="top" title="Update"></i></a>
-                        <a href= "/delete/{{task.id}}" onclick = "return ConfirmDelete()">
+                        <a href="/update/{{task.id}}"><i class="fas fa-edit action-btn ml-2" data-toggle="tooltip" data-placement="top" title="Update"></i></a>
+                        <a href="/delete/{{task.id}}" onclick="return ConfirmDelete()">
                             <i class="fas fa-trash-alt action-btn" data-toggle="tooltip" data-placement="top" title="Delete"></i>
                         </a>
+                        <form action="{{ url_for('start_task', id=task.id) }}" method="post" style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-success">Start</button>
+                        </form>
+                        <form action="{{ url_for('end_task', id=task.id) }}" method="post" style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-danger">End</button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}
@@ -77,6 +114,7 @@
     <!-- Font Awesome JS for icons -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
 
+    <!-- AJAX for Summary Buttons -->
     <script>
         // Tooltip initialization
         $(document).ready(function() {
@@ -94,10 +132,27 @@
                 }
             });
         });
+
+        // Event listeners for summary buttons
+        document.getElementById('dailySummaryBtn').addEventListener('click', function() {
+            fetch('/summary/daily')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('summaryResults').innerHTML = `<div class="alert alert-info">${data.message}</div>`;
+                });
+        });
+
+        document.getElementById('weeklySummaryBtn').addEventListener('click', function() {
+            fetch('/summary/weekly')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('summaryResults').innerHTML = `<div class="alert alert-info">${data.message}</div>`;
+                });
+        });
     </script>
     <script>
         function ConfirmDelete(){
-            return confirm("Are you sure you want to delete this todo task?")
+            return confirm("Are you sure you want to delete this todo task?");
         }
     </script>
 </body>

@@ -9,27 +9,41 @@
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome CDN for icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
-    <!-- Custom Styling -->
-
 </head>
 <body>
     <div class="container">
         <h1 class="mt-4 text-center">Update a Todo</h1>
 
-        <!-- Form to add a new todo -->
+        <!-- Form to update a todo -->
         <form action="/update/{{task.id}}" method="POST" class="mt-4">
-            <div class="form-group d-flex">
-                <input type="text" name="todo_item" id="todo_item" class="form-control mr-2" style="width: 90%;" placeholder="{{task.todo}}" required>
-                <button type="submit" class="btn btn-primary">Update</button>
+            <div class="form-group">
+                <label for="todo_item">Task</label>
+                <input type="text" name="todo_item" id="todo_item" class="form-control" value="{{task.todo}}" required>
             </div>
+            <div class="form-group">
+                <label for="category">Category</label>
+                <select name="category" id="category" class="form-control">
+                    <option value="Work" {% if task.category == 'Work' %}selected{% endif %}>Work</option>
+                    <option value="Personal" {% if task.category == 'Personal' %}selected{% endif %}>Personal</option>
+                    <option value="Study" {% if task.category == 'Study' %}selected{% endif %}>Study</option>
+                    <option value="Urgent" {% if task.category == 'Urgent' %}selected{% endif %}>Urgent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="start_time">Start Time:</label>
+                <input type="datetime-local" id="start_time" name="start_time" class="form-control" value="{{ task.start_time | datetimeformat }}">
+            </div>
+            <div class="form-group">
+                <label for="end_time">End Time:</label>
+                <input type="datetime-local" id="end_time" name="end_time" class="form-control" value="{{ task.end_time | datetimeformat }}">
+            </div>
+            <button type="submit" class="btn btn-primary">Update</button>
         </form>
-
     </div>
 
     <!-- Bootstrap JS and Popper.js (required for certain Bootstrap components) -->
-
-
-    <!-- Font Awesome JS for icons -->
-
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>
