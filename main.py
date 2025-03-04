@@ -153,17 +153,45 @@ def end_task(id):
 def daily_summary():
     today = datetime.now().date()
     tasks = TodoModel.query.filter(func.date(TodoModel.start_time) == today).all()
-    total_hours = sum(float(task.duration.split()[0]) if task.duration else 0 for task in tasks)
-    return jsonify(message=f"Total hours worked today: {total_hours:.2f} hours"), 200
+
+    total_minutes = sum(
+        (float(task.duration.split()[0]) * 60 if "hours" in task.duration else float(task.duration.split()[0])) 
+        for task in tasks if task.duration
+    )
+
+    # Ensure that even very small durations (less than 1 min) are counted as 1 min
+    if 0 < total_minutes < 1:
+        total_minutes = 1
+
+    hours, minutes = divmod(int(total_minutes), 60)
+    return jsonify(message=f"Total work today: {hours} hours {minutes} minutes"), 200
+
 
 # Weekly Work Summary Route
 @app.route('/summary/weekly', methods=['GET'])
 def weekly_summary():
-    week_start = datetime.now().date() - timedelta(days=datetime.now().date().weekday())
-    week_end = week_start + timedelta(days=6)
-    tasks = TodoModel.query.filter(TodoModel.start_time >= week_start, TodoModel.start_time <= week_end).all()
-    total_hours = sum(float(task.duration.split()[0]) if task.duration else 0 for task in tasks)
-    return jsonify(message=f"Total hours worked this week: {total_hours:.2f} hours"), 200
+    today = datetime.now().date()
+    week_start = today - timedelta(days=today.weekday() + 1)  # Move back to Sunday
+    week_end = today  # Set the end to today (dynamic)
+
+    tasks = TodoModel.query.filter(
+        func.date(TodoModel.start_time) >= week_start,
+        func.date(TodoModel.start_time) <= week_end
+    ).all()
+
+    total_minutes = sum(
+        float(task.duration.split()[0]) * 60 if "hours" in task.duration else float(task.duration.split()[0])
+        for task in tasks if task.duration
+    )
+
+    # Ensure that even very small durations (less than 1 min) are counted
+    if 0 < total_minutes < 1:
+        total_minutes = 1
+
+    hours, minutes = divmod(int(total_minutes), 60)
+    return jsonify(message=f"Total work this week (from {week_start} to {week_end}): {hours} hours {minutes} minutes"), 200
+
+
 
 # API for fetching all tasks
 @app.route('/api/tasks', methods=['GET'])
